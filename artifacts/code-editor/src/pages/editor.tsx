@@ -260,29 +260,99 @@ export default function Editor() {
   // Generate srcdoc for live preview
   const previewSrcDoc = useMemo(() => {
     if (!files) return "";
-    
-    // Find html, css, js
+
+    // ── React preview (JSX/TSX via Babel Standalone + CDN) ──────────────────
+    if (project?.language === 'react') {
+      const appFile =
+        files.find(f => f.name === 'App.tsx' || f.name === 'App.jsx') ||
+        files.find(f => f.name.endsWith('.tsx') || f.name.endsWith('.jsx')) ||
+        files.find(f => f.name.endsWith('.ts') || f.name.endsWith('.js'));
+      const cssFile = files.find(f => f.name.endsWith('.css'));
+
+      if (!appFile) {
+        return `<html><body style="font-family:sans-serif;padding:2rem;color:#888;text-align:center">No App.tsx file found</body></html>`;
+      }
+
+      const rawCode = fileContents[appFile.id] !== undefined ? fileContents[appFile.id] : appFile.content;
+      const cssContent = cssFile ? (fileContents[cssFile.id] !== undefined ? fileContents[cssFile.id] : cssFile.content) : '';
+
+      // Strip/replace imports so the code runs without a bundler
+      const processed = rawCode
+        // import React, { useState } from 'react'  →  (removed, React is global)
+        .replace(/^import\s+React(?:\s*,\s*\{[^}]*\})?\s+from\s+['"]react['"].*$/gm, '')
+        // import { useState, useEffect } from 'react'  →  const { useState, useEffect } = React;
+        .replace(/^import\s*\{([^}]*)\}\s*from\s+['"]react['"].*$/gm, 'const {$1} = React;')
+        // import ReactDOM from 'react-dom'  →  (removed, ReactDOM is global)
+        .replace(/^import\s+\w+\s+from\s+['"]react-dom[^'"]*['"].*$/gm, '')
+        // remove all remaining import lines (no bundler available)
+        .replace(/^import\s+.*$/gm, '')
+        // export default function/class/const  →  keep definition, remove export
+        .replace(/export\s+default\s+/g, '');
+
+      // Escape </script> inside user code so it doesn't close our script tag
+      const escaped = processed.replace(/<\/script>/gi, '<\\/script>');
+
+      return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: sans-serif; }
+    ${cssContent}
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel" data-presets="react,typescript">
+    ${escaped}
+
+    // Auto-render: look for a component named App, default, or the first exported name
+    try {
+      const AppComponent = typeof App !== 'undefined' ? App
+        : typeof Default !== 'undefined' ? Default
+        : null;
+      if (AppComponent) {
+        ReactDOM.createRoot(document.getElementById('root')).render(
+          React.createElement(AppComponent)
+        );
+      } else {
+        document.getElementById('root').innerHTML =
+          '<div style="padding:1rem;color:#888">No default component found. Make sure your component is named <b>App</b>.</div>';
+      }
+    } catch (err) {
+      document.getElementById('root').innerHTML =
+        '<pre style="color:red;padding:1rem;font-size:13px">' + err.message + '</pre>';
+    }
+  </script>
+</body>
+</html>`;
+    }
+
+    // ── HTML / CSS / JS preview ──────────────────────────────────────────────
     const htmlFile = files.find(f => f.name.endsWith('.html'));
     const cssFile = files.find(f => f.name.endsWith('.css'));
     const jsFile = files.find(f => f.name.endsWith('.js'));
-    
-    if (!htmlFile) return "<html><body><div style='font-family:sans-serif;padding:2rem;text-align:center;'>No HTML file found for preview</div></body></html>";
-    
+
+    if (!htmlFile) return "<html><body><div style='font-family:sans-serif;padding:2rem;text-align:center;color:#888'>No HTML file found for preview</div></body></html>";
+
     let htmlContent = fileContents[htmlFile.id] !== undefined ? fileContents[htmlFile.id] : htmlFile.content;
     const cssContent = cssFile ? (fileContents[cssFile.id] !== undefined ? fileContents[cssFile.id] : cssFile.content) : "";
     const jsContent = jsFile ? (fileContents[jsFile.id] !== undefined ? fileContents[jsFile.id] : jsFile.content) : "";
 
-    // Inject CSS
     if (cssContent) {
       htmlContent = htmlContent.replace('</head>', `<style>${cssContent}</style></head>`);
     }
-    // Inject JS
     if (jsContent) {
-      htmlContent = htmlContent.replace('</body>', `<script>${jsContent}</script></body>`);
+      htmlContent = htmlContent.replace('</body>', `<script>${jsContent}<\/script></body>`);
     }
 
     return htmlContent;
-  }, [files, fileContents]);
+  }, [files, fileContents, project?.language]);
 
   if (projectLoading || filesLoading) {
     return (
