@@ -87,7 +87,7 @@ export default function NewProject() {
       <div className="container max-w-3xl mx-auto py-8 px-4">
         <Button 
           variant="ghost" 
-          onClick={() => setLocation("/")}
+          onClick={() => setLocation("/dashboard")}
           className="mb-6 -ml-4 text-muted-foreground"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />

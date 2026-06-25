@@ -300,7 +300,7 @@ export default function Editor() {
       <div className="h-screen w-full flex items-center justify-center bg-background">
         <div className="text-center">
           <h2 className="text-2xl font-bold">Project not found</h2>
-          <Button onClick={() => setLocation("/")} className="mt-4">Return to Dashboard</Button>
+          <Button onClick={() => setLocation("/dashboard")} className="mt-4">Return to Dashboard</Button>
         </div>
       </div>
     );
@@ -314,7 +314,7 @@ export default function Editor() {
       {/* Header */}
       <header className="h-14 border-b bg-card flex items-center justify-between px-4 shrink-0 z-10">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => setLocation("/")}>
+          <Button variant="ghost" size="icon" onClick={() => setLocation("/dashboard")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex flex-col">
